@@ -5,12 +5,21 @@ pipeline {
         maven 'maven9'   // Must match Maven installation name in Jenkins
     }
 
+    environment {
+        // Optionally set Maven local repo to workspace to avoid permission issues
+        MAVEN_OPTS = "-Dmaven.repo.local=${WORKSPACE}/.m2/repository"
+    }
+
     stages {
 
         stage('Checkout') {
             steps {
                 // Clone your GitHub repo
-                git branch: 'main', url: 'https://github.com/7sanjay/payment-service.git'
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/7sanjay/payment-service.git']]
+                ])
             }
         }
 
