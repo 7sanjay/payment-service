@@ -9,7 +9,7 @@ pipeline {
 
     tools {
         // Use Maven 9 configured in Jenkins Global Tool Configuration
-        maven 'Maven9'
+        maven 'maven9'
     }
 
     stages {
