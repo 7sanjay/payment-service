@@ -1,22 +1,19 @@
 pipeline {
     agent any
 
-    environment {
-        // Nexus credentials stored in Jenkins Credentials Manager
-        NEXUS_USER = credentials('nexus-username')
-        NEXUS_PASSWORD = credentials('nexus-password')
+    tools {
+        maven 'maven9'   // Name of Maven installation in Jenkins
     }
 
-    tools {
-        // Use Maven 9 configured in Jenkins Global Tool Configuration
-        maven 'maven9'
+    environment {
+        // No global credentials here; we'll inject in stage using withCredentials
     }
 
     stages {
-        stage('Checkout SCM') {
+
+        stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/7sanjay/payment-service.git'
+                git branch: 'main', url: 'https://github.com/7sanjay/payment-service.git'
             }
         }
 
@@ -28,21 +25,40 @@ pipeline {
 
         stage('Deploy to Nexus') {
             steps {
-                sh '''
-                    mvn deploy \
-                      --settings settings.xml \
-                      -DskipTests
-                '''
+                // Inject Nexus credentials securely
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-creds',  // Jenkins credential ID
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
+                )]) {
+                    script {
+                        // Determine version type based on branch
+                        def isRelease = env.BRANCH_NAME == 'main'
+                        def versionType = isRelease ? '' : '-SNAPSHOT'
+
+                        echo "Deploying version 1.0.0${versionType} to Nexus"
+
+                        sh """
+                            mvn deploy \
+                              --settings settings.xml \
+                              -Drevision=1.0.0${versionType} \
+                              -Dnexus.username=$NEXUS_USER \
+                              -Dnexus.password=$NEXUS_PASS \
+                              -DskipTests
+                        """
+                    }
+                }
             }
         }
+
     }
 
     post {
         success {
-            echo "Pipeline completed successfully with Maven 9!"
+            echo "Pipeline completed successfully and artifact uploaded to Nexus!"
         }
         failure {
-            echo "Pipeline failed. Check logs for errors."
+            echo "Pipeline failed. Check console logs for details."
         }
     }
 }
